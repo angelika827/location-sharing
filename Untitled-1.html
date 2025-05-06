@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+  <title>Location Sharing & Map Viewer</title>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0; padding: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 {
+      margin-top: 15px;
+      font-size: 1.8rem;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-align: center;
+      max-width: 90vw;
+    }
+    #status {
+      margin: 10px 0 20px 0;
+      font-size: 1.1rem;
+      font-weight: 600;
+      text-align: center;
+      min-height: 24px;
+      max-width: 90vw;
+    }
+    #map {
+      height: 400px;
+      width: 90vw;
+      max-width: 500px;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgb(0 0 0 / 0.3);
+      margin-bottom: 15px;
+    }
+    #coords {
+      font-size: 1.2rem;
+      letter-spacing: 0.06em;
+      font-weight: 600;
+      margin-bottom: 12px;
+    }
+    #shareLink {
+      background: #4c51bf;
+      padding: 10px 15px;
+      border-radius: 10px;
+      max-width: 90vw;
+      word-break: break-all;
+      cursor: pointer;
+      user-select: all;
+      font-weight: 700;
+      font-size: 1rem;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 12px rgb(0,0,0,0.25);
+      text-align: center;
+    }
+    #shareLink:hover {
+      background: #3b3fc1;
+    }
+    button {
+      background-color: #5a67d8;
+      border: none;
+      border-radius: 10px;
+      padding: 12px 28px;
+      color: white;
+      cursor: pointer;
+      font-size: 1.1rem;
+      font-weight: 700;
+      box-shadow: 0 6px 20px rgb(0 0 0 / 0.3);
+      transition: background-color 0.3s ease;
+      margin-bottom: 20px;
+      max-width: 90vw;
+      width: 300px;
+    }
+    button:hover {
+        background-color: #434aa8;
+      }
+      @media (max-width: 600px) {
+        #map {
+          height: 300px;
+          width: 100vw;
+        }
+        button {
+          width: 90vw;
+        }
+        h1 {
+          font-size: 1.5rem;
+        }
+      }
+    </style>
+    <!-- Leaflet CSS CDN -->
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-o9N1jz+9rIqJ6YjEwKuPod+OM+FutQU6c6gi9uF7wYw="
+      crossorigin=""
+    />
+  </head>
+  <body>
+  <h1>Location Sharing & Map Viewer</h1>
+  <div id="status">Click "Get My Location" to share your location.</div>
+  <div id="coords">Latitude: -- , Longitude: --</div>
+  <button id="locateBtn">Get My Location</button>
+  <div id="shareLink" title="Click to copy shareable link" style="display:none;"></div>
+  <div id="map" style="display:none;"></div>
+
+  <!-- Leaflet JS CDN -->
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha256-oCj2kXYKjpL3F3pJ2DxFEMjIvuPbZFffoMrdZjK51r0="
+    crossorigin=""
+  ></script>
+  <script>
+    const statusEl = document.getElementById('status');
+    const coordsEl = document.getElementById('coords');
+    const locateBtn = document.getElementById('locateBtn');
+    const shareLinkEl = document.getElementById('shareLink');
+    const mapEl = document.getElementById('map');
+
+    let map, marker;
+
+    function updateStatus(message) {
+      statusEl.textContent = message;
+    }
+
+    function showCoordinates(lat, lon) {
+      coordsEl.textContent = `Latitude: ${lat.toFixed(6)}, Longitude: ${lon.toFixed(6)}`;
+    }
+
+    function createMap(lat, lon) {
+      mapEl.style.display = 'block';
+      if (!map) {
+        map = L.map('map').setView([lat, lon], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '&copy; OpenStreetMap contributors',
+          maxZoom: 19,
+        }).addTo(map);
+
+        marker = L.marker([lat, lon]).addTo(map)
+          .bindPopup('Your Location')
+          .openPopup();
+      } else {
+        map.setView([lat, lon], 13);
+        marker.setLatLng([lat, lon]);
+      }
+    }
+
+    function generateShareableUrl(lat, lon) {
+    const baseUrl = window.location.origin + window.location.pathname;
+    return `${baseUrl}?lat=${lat}&lon=${lon}`; // Fixed here
+}
+
+    function copyToClipboard(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        updateStatus('Shareable link copied to clipboard!');
+        setTimeout(() => {
+          updateStatus('Your location is shared on the map below.');
+        }, 2500);
+      });
+    }
+
+    function handleError(error) {
+      switch(error.code) {
+        case error.PERMISSION_DENIED:
+          updateStatus("Permission denied. Please allow location access.");
+          break;
+        case error.POSITION_UNAVAILABLE:
+          updateStatus("Location information is unavailable.");
+          break;
+        case error.TIMEOUT:
+          updateStatus("The request to get location timed out.");
+          break;
+        default:
+          updateStatus("An unknown error occurred.");
+      }
+      coordsEl.textContent = 'Latitude: -- , Longitude: --';
+      shareLinkEl.style.display = 'none';
+      mapEl.style.display = 'none';
+    }
+
+    locateBtn.addEventListener('click', () => {
+      if (!navigator.geolocation) {
+        updateStatus('Geolocation is not supported by your browser.');
+        return;
+      }
+      updateStatus('Locating...');
+      navigator.geolocation.getCurrentPosition(success, handleError, {
+        enableHighAccuracy: true,
+        timeout: 30000,
+        maximumAge: 0
+      });
+    });
+
+    function success(position) {
+      const lat = position.coords.latitude;
+      const lon = position.coords.longitude;
+      updateStatus('Location found!');
+      showCoordinates(lat, lon);
+      createMap(lat, lon);
+      const shareUrl = generateShareableUrl(lat, lon);
+      shareLinkEl.style.display = 'block';
+      shareLinkEl.textContent = shareUrl;
+    }
+
+    shareLinkEl.addEventListener('click', () => {
+      copyToClipboard(shareLinkEl.textContent);
+    });
+
+    // On page load, if lat/lon in URL params, show the map and mark that location
+    window.onload = () => {
+      const params = new URLSearchParams(window.location.search);
+      const latParam = params.get('lat');
+      const lonParam = params.get('lon');
+      if (latParam && lonParam) {
+        const lat = parseFloat(latParam);
+        const lon = parseFloat(lonParam);
+        if (!isNaN(lat) && !isNaN(lon)) {
+          updateStatus('Viewing shared location:');
+          showCoordinates(lat, lon);
+          createMap(lat, lon);
+          shareLinkEl.style.display = 'none';
+          locateBtn.style.display = 'none';
+        }
+      }
+    };
+  </script>
+</body>
+</html>
